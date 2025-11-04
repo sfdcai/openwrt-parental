@@ -8,6 +8,8 @@ start_service(){
     echo '* * * * * /usr/share/parental/scripts/schedule_tick.sh >/dev/null 2>&1' >>/etc/crontabs/root
     /etc/init.d/cron restart >/dev/null 2>&1
   }
-  httpd -p 8088 -h /www/parental-ui &
+  if [ -x /etc/init.d/uhttpd ]; then
+    /etc/init.d/uhttpd reload >/dev/null 2>&1 || /etc/init.d/uhttpd start >/dev/null 2>&1 || true
+  fi
 }
 reload_service(){ /usr/share/parental/scripts/apply.sh reload; }
