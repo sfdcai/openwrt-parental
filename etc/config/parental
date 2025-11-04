@@ -4,6 +4,8 @@ config global 'settings'
   option adguard_url 'http://127.0.0.1:3000'
   option adguard_token ''
   option log_level 'info'
+  option telegram_token ''
+  option telegram_chat_id ''
 
 config group 'kids'
   option name 'Kids'

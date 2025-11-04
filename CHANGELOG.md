@@ -1,3 +1,15 @@
+## 2.1.2
+
+- Added Telegram bot bridge with authenticated command support and documented setup in the README.
+- Reworked `generate.sh` to package the tracked tree (including the Makefile) without hard-coded router IPs.
+- Created an OpenWrt SDK `Makefile` and GitHub Actions workflow to publish build artifacts automatically.
+
+## 2.1.1
+
+- Hardened `generate.sh` with dependency checks, safer path handling, and shared installer sourcing.
+- Reworked `install.sh` to validate prerequisites, manage services idempotently, and restart the UI cleanly.
+- Added `bootstrap.sh` for one-line installs from GitHub and documented the workflow in the README.
+
 ## 2.1.0
 
 - Web UI: per-group filter, dark mode, live refresh, action buttons (Pause 30m, Block, Unblock), basic usage graph from AdGuard querylog.
