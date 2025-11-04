@@ -22,7 +22,7 @@ Run this command on your OpenWrt router to download the latest packaged release 
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/sfdcai/openwrt-parental/main/bootstrap.sh)"
 ```
 
-Environment variables allow you to pin a specific release (`VERSION="v2.0.0"`), override the download URL (`PKG_URL`), or keep the extracted payload for inspection (`KEEP_FILES=1`).
+Environment variables allow you to pin a specific release (`VERSION="v2.0.0"`), override the download URL (`PKG_URL`), or keep the extracted payload for inspection (`KEEP_FILES=1`). If the packaged release asset is missing, the bootstrapper automatically falls back to the repository archive (main branch or tagged source) so the installer can still run.
 
 ### Installation
 

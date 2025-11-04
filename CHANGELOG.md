@@ -1,3 +1,8 @@
+## 2.1.3
+
+- Made `bootstrap.sh` fall back to GitHub source archives when release assets are missing and locate the installer within extracted directories.
+- Documented the fallback behaviour in the README quick-install section.
+
 ## 2.1.2
 
 - Added Telegram bot bridge with authenticated command support and documented setup in the README.
