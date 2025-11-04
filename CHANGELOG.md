@@ -1,3 +1,49 @@
+## 2.2.3
+
+- Ensure the RPC plugin launches even when only `lua5.1`/`luajit` is available by adding a shim that discovers the interpreter before delegating to `parental.lua`.
+- Teach the installer to install whichever Lua interpreter variant exists on the target so `parental` registers on ubus automatically.
+- Document the interpreter fallback in the README troubleshooting section.
+
+## 2.2.2
+
+- Hardened the `parental` ubus plugin to tolerate missing JSON libraries, expose a `debug_report` endpoint, and surface better error logging instead of failing to register.
+- Added `/usr/share/parental/scripts/debug.sh` for on-device diagnostics and wired the installer/UI to make the report easily accessible.
+- Refreshed the web UI with a Bulma-inspired theme, explicit RPC connection hints, resilient ubus error handling, and a diagnostics panel with copy-to-clipboard debug bundles.
+- Documented the new troubleshooting workflow and debug API call in the README.
+
+## 2.2.1
+
+- Expanded LAN discovery to merge DHCP leases, hostapd/iwinfo station data, wireless status, and ARP neighbors, surfacing managed clients with interface, signal, and last-seen metadata via `parental.get_overview`.
+- Enhanced the dashboard's discovered-device panel with search, manual scan controls, tagged metadata, and managed-group indicators to streamline onboarding.
+
+## 2.2.0
+
+- Web UI overhaul with configurable themes, live dashboards, discovered-device onboarding, and in-browser editing of groups, clients, and global settings.
+- Added `parental.save_config` ubus method plus richer overview data (discovered hosts) to support UI-driven configuration.
+- Bootstrapper and installer now auto-install required packages (`curl`, `unzip`, `lua`, `luci-lib-jsonc`, `uhttpd`, `uhttpd-mod-ubus`) and enable the `/ubus` handler for the dedicated UI listener.
+- README refreshed with UI workflow, dependency automation, and new API documentation.
+
+## 2.1.4
+
+- Installer now ensures `uhttpd` is installed and configures a dedicated listener for the UI, with an opt-out for `opkg` updates.
+
+## 2.1.3
+
+- Made `bootstrap.sh` fall back to GitHub source archives when release assets are missing and locate the installer within extracted directories.
+- Documented the fallback behaviour in the README quick-install section.
+
+## 2.1.2
+
+- Added Telegram bot bridge with authenticated command support and documented setup in the README.
+- Reworked `generate.sh` to package the tracked tree (including the Makefile) without hard-coded router IPs.
+- Created an OpenWrt SDK `Makefile` and GitHub Actions workflow to publish build artifacts automatically.
+
+## 2.1.1
+
+- Hardened `generate.sh` with dependency checks, safer path handling, and shared installer sourcing.
+- Reworked `install.sh` to validate prerequisites, manage services idempotently, and restart the UI cleanly.
+- Added `bootstrap.sh` for one-line installs from GitHub and documented the workflow in the README.
+
 ## 2.1.0
 
 - Web UI: per-group filter, dark mode, live refresh, action buttons (Pause 30m, Block, Unblock), basic usage graph from AdGuard querylog.

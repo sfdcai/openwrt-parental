@@ -1,0 +1,250 @@
+/*
+ * Bulma Lite - minimal subset for Parental Suite UI
+ * Based on Bulma design tokens (https://bulma.io)
+ */
+:root {
+  --bulma-primary: #2563eb;
+  --bulma-primary-invert: #fff;
+  --bulma-danger: #dc2626;
+  --bulma-warning: #f59e0b;
+  --bulma-success: #16a34a;
+  --bulma-text-strong: #0f172a;
+  --bulma-text: #1f2937;
+  --bulma-text-light: #6b7280;
+  --bulma-border: rgba(15, 23, 42, 0.12);
+  --bulma-background: #f8fafc;
+  --bulma-card: #fff;
+  --bulma-radius: 0.75rem;
+  --bulma-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+body {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  font-size: 16px;
+  color: var(--bulma-text);
+  background: var(--bulma-background);
+}
+
+strong {
+  color: var(--bulma-text-strong);
+}
+
+.section {
+  padding: 1.5rem;
+}
+
+.container {
+  margin: 0 auto;
+  max-width: 1200px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.55rem 1.3rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  background-color: var(--bulma-card);
+  color: var(--bulma-text);
+  box-shadow: var(--bulma-shadow);
+}
+
+.button:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.2);
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.button.is-primary {
+  background-color: var(--bulma-primary);
+  border-color: var(--bulma-primary);
+  color: var(--bulma-primary-invert);
+}
+
+.button.is-light {
+  background-color: transparent;
+  border-color: var(--bulma-border);
+  color: var(--bulma-text);
+  box-shadow: none;
+}
+
+.button.is-danger {
+  background-color: var(--bulma-danger);
+  border-color: var(--bulma-danger);
+  color: #fff;
+}
+
+.button.is-small {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 0.5rem;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.card {
+  background: var(--bulma-card);
+  border-radius: var(--bulma-radius);
+  box-shadow: var(--bulma-shadow);
+  padding: 1.5rem;
+}
+
+.card + .card {
+  margin-top: 1.5rem;
+}
+
+.card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.card .card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--bulma-border);
+  gap: 1rem;
+}
+
+.tabs li {
+  list-style: none;
+}
+
+.tabs a {
+  display: inline-flex;
+  padding: 0.75rem 1rem;
+  color: var(--bulma-text-light);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.tabs li.is-active a {
+  color: var(--bulma-text-strong);
+  border-color: var(--bulma-primary);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.table thead th {
+  text-align: left;
+  padding: 0.6rem 0.5rem;
+  color: var(--bulma-text-light);
+  border-bottom: 1px solid var(--bulma-border);
+}
+
+.table tbody td {
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.table tbody tr:hover {
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--bulma-primary);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tag.is-light {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--bulma-text);
+}
+
+.notification {
+  padding: 1rem;
+  border-radius: var(--bulma-radius);
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--bulma-text-light);
+}
+
+.control input,
+.control select,
+.control textarea {
+  width: 100%;
+  border-radius: 0.65rem;
+  border: 1px solid var(--bulma-border);
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  background: var(--bulma-card);
+  color: inherit;
+}
+
+.control input:focus,
+.control select:focus,
+.control textarea:focus {
+  border-color: var(--bulma-primary);
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.18);
+  outline: none;
+}
+
+.help {
+  font-size: 0.8rem;
+  color: var(--bulma-text-light);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.is-flex {
+  display: flex;
+}
+
+.is-justify-content-space-between {
+  justify-content: space-between;
+}
+
+.is-align-items-center {
+  align-items: center;
+}
+
+.is-flex-wrap-wrap {
+  flex-wrap: wrap;
+}
+
+.is-gap-2 {
+  gap: 0.75rem;
+}
