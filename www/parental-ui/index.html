@@ -1,22 +1,176 @@
 <!DOCTYPE html>
-<html><head>
-<meta charset="utf-8"><title>Parental Suite</title>
-<link rel="stylesheet" href="style.css">
-</head><body>
-<header>
-  <h1>Parental Suite v2</h1>
-  <div class="toolbar">
-    <label>Group:
-      <select id="group-filter"><option value="all">All</option></select>
-    </label>
-    <button id="btn-sync">Sync AdGuard</button>
-    <label class="toggle">
-      <input type="checkbox" id="toggle-dark"> Dark
-    </label>
-  </div>
-  <div id="status">Loading...</div>
-  <div id="usage"></div>
-</header>
-<table id="clients"><thead><tr><th>Client</th><th>Group</th><th>Actions</th></tr></thead><tbody></tbody></table>
-<script src="app.js"></script>
-</body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parental Suite v2</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="light">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Parental Suite v2</h1>
+      <div id="health-status" class="status-chip">Disconnected</div>
+    </div>
+    <div class="top-actions">
+      <label class="theme-picker">
+        Theme
+        <select id="theme-mode">
+          <option value="auto">Auto</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <button id="btn-refresh" class="secondary">Refresh</button>
+      <button id="btn-apply" class="secondary">Apply Rules</button>
+      <button id="btn-sync" class="secondary">Sync AdGuard</button>
+      <button id="btn-save" class="primary">Save Configuration</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary-grid">
+      <article class="card">
+        <h2>Overview</h2>
+        <dl class="kv" id="overview-summary">
+          <div><dt>Groups</dt><dd>0</dd></div>
+          <div><dt>Managed Clients</dt><dd>0</dd></div>
+          <div><dt>Discovered Devices</dt><dd>0</dd></div>
+          <div><dt>AdGuard Queries (5m)</dt><dd>0</dd></div>
+        </dl>
+        <div class="timestamps">
+          <span id="last-refresh">Last update: —</span>
+          <span id="dirty-flag" hidden>Unsaved changes</span>
+        </div>
+      </article>
+      <article class="card">
+        <h2>System Health</h2>
+        <dl class="kv" id="health-breakdown">
+          <div><dt>NFT</dt><dd>—</dd></div>
+          <div><dt>Firewall Hook</dt><dd>—</dd></div>
+          <div><dt>Cron</dt><dd>—</dd></div>
+          <div><dt>AdGuard</dt><dd>—</dd></div>
+        </dl>
+      </article>
+      <article class="card">
+        <h2>Quick Actions</h2>
+        <div class="quick-actions">
+          <button class="action" data-action="pause-all" disabled>Pause Selected Group (30m)</button>
+          <button class="action" data-action="block-all" disabled>Block Selected Group</button>
+          <button class="action" data-action="unblock-all" disabled>Unblock Selected Group</button>
+        </div>
+        <p class="hint">Select individual clients below for granular control.</p>
+      </article>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab-button active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-button" data-tab="groups">Groups</button>
+      <button class="tab-button" data-tab="settings">Settings</button>
+    </nav>
+
+    <section id="tab-dashboard" class="tab-panel active">
+      <div class="dashboard-grid">
+        <article class="card">
+          <div class="card-header">
+            <h3>Managed Clients</h3>
+            <label>Group
+              <select id="group-filter">
+                <option value="all">All</option>
+              </select>
+            </label>
+          </div>
+          <table class="data" id="clients-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>MAC</th>
+                <th>Group</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="4" class="muted">No clients defined.</td></tr>
+            </tbody>
+          </table>
+          <div class="table-actions">
+            <button id="btn-add-client" class="secondary">Add Client</button>
+          </div>
+        </article>
+        <article class="card">
+          <h3>Recent DNS Queries</h3>
+          <div id="usage-bars" class="usage"></div>
+        </article>
+        <article class="card">
+          <div class="card-header">
+            <h3>Discovered Devices</h3>
+            <div class="discovered-controls">
+              <input type="search" id="discovered-filter" placeholder="Search host, MAC or IP">
+              <button id="btn-scan" class="secondary mini">Scan</button>
+            </div>
+          </div>
+          <div id="discovered-list" class="discovered"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-groups" class="tab-panel">
+      <article class="card">
+        <div class="card-header">
+          <h3>Groups &amp; Schedules</h3>
+          <button id="btn-add-group" class="secondary">Add Group</button>
+        </div>
+        <div id="groups-container" class="group-list"></div>
+      </article>
+    </section>
+
+    <section id="tab-settings" class="tab-panel">
+      <article class="card">
+        <h3>Global Settings</h3>
+        <form id="settings-form" class="settings-form" autocomplete="off">
+          <label class="toggle">
+            <input type="checkbox" id="setting-enabled">
+            <span>Enforce policies (enabled)</span>
+          </label>
+          <label>
+            Default policy
+            <select id="setting-default-policy">
+              <option value="allow">Allow unless blocked</option>
+              <option value="block">Block unless scheduled</option>
+            </select>
+          </label>
+          <label>
+            AdGuard URL
+            <input type="text" id="setting-adguard-url" placeholder="http://127.0.0.1:3000">
+          </label>
+          <label>
+            AdGuard Token
+            <input type="password" id="setting-adguard-token">
+          </label>
+          <label>
+            Log level
+            <select id="setting-log-level">
+              <option value="info">info</option>
+              <option value="debug">debug</option>
+              <option value="warn">warn</option>
+              <option value="error">error</option>
+            </select>
+          </label>
+          <label>
+            Telegram Bot Token
+            <input type="text" id="setting-telegram-token" placeholder="123456:ABC...">
+          </label>
+          <label>
+            Telegram Chat ID(s)
+            <input type="text" id="setting-telegram-chat" placeholder="12345,67890">
+          </label>
+        </form>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
