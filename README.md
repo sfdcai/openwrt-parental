@@ -17,7 +17,7 @@ A modern, API-first parental control suite for OpenWrt routers using `nftables` 
 
 ### Quick Install
 
-Run this command on your OpenWrt router to download the latest packaged release and execute the installer automatically. Missing prerequisites such as `curl`, `unzip`, `lua`, `uhttpd`, `uhttpd-mod-ubus`, and `luci-lib-jsonc` are installed on the fly via `opkg`:
+Run this command on your OpenWrt router to download the latest packaged release and execute the installer automatically. Missing prerequisites such as `curl`, `unzip`, `lua`/`lua5.1`, `uhttpd`, `uhttpd-mod-ubus`, and `luci-lib-jsonc` are installed on the fly via `opkg`:
 
 ```sh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/sfdcai/openwrt-parental/main/bootstrap.sh)"
@@ -42,7 +42,7 @@ Environment variables allow you to pin a specific release (`VERSION="v2.0.0"`), 
 
 3.  The web UI will be available at `http://<your-router-ip>:8088`.
 
-The installer verifies and installs `uhttpd`, `uhttpd-mod-ubus`, `lua`, `luci-lib-jsonc`, and `curl` automatically before deploying the suite.
+The installer verifies and installs `uhttpd`, `uhttpd-mod-ubus`, `lua`/`lua5.1`, `luci-lib-jsonc`, and `curl` automatically before deploying the suite. A lightweight shim chooses whichever Lua interpreter (`lua`, `lua5.1`, `lua5.3`, or `luajit`) is present so the `parental` ubus object registers even on images that only ship `lua5.1` binaries.
 
 ### Managing through the Web UI
 
@@ -62,7 +62,7 @@ Unsaved edits are highlighted in the header. Click **Save Configuration** to pus
 ### Diagnostics & Troubleshooting
 
 * Collect a full runtime snapshot with the UI's **Collect Debug Report** button (Settings → Diagnostics). The textarea can be copied directly or shared after redaction.
-* From the shell, run `/usr/share/parental/scripts/debug.sh` to gather service status, ACL presence, ubus registration, recent logs, and socket listeners. Provide the output when requesting help.
+* From the shell, run `/usr/share/parental/scripts/debug.sh` to gather service status, ACL presence, ubus registration, recent logs, and socket listeners. Provide the output when requesting help. If the report still shows `parental object missing`, confirm a Lua interpreter is installed; the shim will automatically use whichever variant is available once one is present.
 * The header chip reflects RPC availability; hover the tooltip or check the adjacent hint for the last successful refresh or the active error message.
 
 ### Configuration

@@ -68,13 +68,38 @@ ensure_command() {
   return 1
 }
 
-NEEDED_PACKAGES="uhttpd uhttpd-mod-ubus luci-lib-jsonc lua curl"
+NEEDED_PACKAGES="uhttpd uhttpd-mod-ubus luci-lib-jsonc lua lua5.1 curl"
 for pkg in $NEEDED_PACKAGES; do
   ensure_package "$pkg" || warn "Failed to ensure package $pkg (install manually)"
 done
 
 ensure_command curl curl || fail "curl is required"
-ensure_command lua lua luajit || fail "Lua interpreter is required"
+
+ensure_lua() {
+  if command -v lua >/dev/null 2>&1; then
+    return 0
+  fi
+  for candidate in lua5.1 lua5.3 luajit; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+
+  for pkg in lua lua5.1 lua5.3 luajit; do
+    if ensure_package "$pkg"; then
+      for candidate in lua lua5.1 lua5.3 luajit; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+          return 0
+        fi
+      done
+    fi
+  done
+  return 1
+}
+
+if ! ensure_lua; then
+  fail "Lua interpreter is required (install lua or lua5.1)."
+fi
 
 ensure_uhttpd() {
   if [ -x /etc/init.d/uhttpd ]; then

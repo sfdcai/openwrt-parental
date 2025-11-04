@@ -1,3 +1,9 @@
+## 2.2.3
+
+- Ensure the RPC plugin launches even when only `lua5.1`/`luajit` is available by adding a shim that discovers the interpreter before delegating to `parental.lua`.
+- Teach the installer to install whichever Lua interpreter variant exists on the target so `parental` registers on ubus automatically.
+- Document the interpreter fallback in the README troubleshooting section.
+
 ## 2.2.2
 
 - Hardened the `parental` ubus plugin to tolerate missing JSON libraries, expose a `debug_report` endpoint, and surface better error logging instead of failing to register.

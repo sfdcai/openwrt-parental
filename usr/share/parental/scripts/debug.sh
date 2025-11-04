@@ -21,6 +21,18 @@ else
   echo "opkg not present"
 fi
 
+print_section "Lua interpreters"
+found=0
+for bin in lua lua5.1 lua5.3 luajit; do
+  if command -v "$bin" >/dev/null 2>&1; then
+    printf '%s -> %s\n' "$bin" "$(command -v "$bin")"
+    found=1
+  fi
+done
+if [ "$found" -eq 0 ]; then
+  echo "no lua interpreter found"
+fi
+
 print_section "UCI parental"
 uci -q show parental || echo "uci show parental failed"
 
