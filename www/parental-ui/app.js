@@ -7,6 +7,7 @@ const state = {
   health: null,
   querylog: [],
   discovered: [],
+  discoveredFilter: "",
   form: { globals: {}, groups: [], clients: [] },
   dirty: false,
   theme: "auto",
@@ -73,15 +74,61 @@ function mapDiscovered(list) {
   if (!Array.isArray(list)) return [];
   const seen = new Map();
   list.forEach((entry) => {
-    const mac = (entry.mac || "").toUpperCase();
+    const mac = (entry && entry.mac ? entry.mac : "").toUpperCase();
     if (!mac) return;
-    const current = seen.get(mac) || { mac, hostname: "", ip: "", source: "" };
-    current.hostname = current.hostname || entry.hostname || entry.name || "";
-    current.ip = current.ip || entry.ip || entry.address || "";
-    current.source = current.source || entry.source || "";
+    const current =
+      seen.get(mac) || {
+        mac,
+        hostname: "",
+        ips: [],
+        ipv6: [],
+        sources: [],
+        interface: "",
+        group: "",
+        signal: null,
+        last_seen: null,
+      };
+    const host = entry.hostname || entry.name;
+    if (host && !current.hostname) current.hostname = host;
+    const ip = entry.ip || entry.address;
+    if (ip && !current.ips.includes(ip)) current.ips.push(ip);
+    const ip6 = entry.ipv6;
+    if (ip6 && !current.ipv6.includes(ip6)) current.ipv6.push(ip6);
+    const iface = entry.interface || entry.ifname;
+    if (iface && !current.interface) current.interface = iface;
+    const group = entry.group;
+    if (group && !current.group) current.group = group;
+    const sources = [];
+    if (Array.isArray(entry.sources)) sources.push(...entry.sources);
+    if (entry.source) sources.push(entry.source);
+    sources.forEach((src) => {
+      if (!src) return;
+      if (!current.sources.includes(src)) current.sources.push(src);
+    });
+    if (
+      typeof entry.signal === "number" &&
+      (current.signal == null || entry.signal > current.signal)
+    ) {
+      current.signal = entry.signal;
+    }
+    const seenTs = Number(entry.last_seen);
+    if (!Number.isNaN(seenTs)) {
+      if (current.last_seen == null || seenTs > current.last_seen) current.last_seen = seenTs;
+    }
     seen.set(mac, current);
   });
-  return Array.from(seen.values());
+  return Array.from(seen.values()).map((item) => ({
+    mac: item.mac,
+    hostname: item.hostname,
+    ip: item.ips[0] || "",
+    ips: item.ips,
+    ipv6: item.ipv6,
+    sources: item.sources,
+    interface: item.interface,
+    group: item.group,
+    signal: item.signal,
+    last_seen: item.last_seen,
+  }));
 }
 
 function buildFormFromOverview(data) {
@@ -345,26 +392,99 @@ function matchQueryToClient(entry, clients) {
   return null;
 }
 
+function filterDiscoveredList(devices) {
+  const needle = (state.discoveredFilter || "").trim().toLowerCase();
+  if (!needle) return devices;
+  return devices.filter((dev) => {
+    const fields = [
+      dev.mac,
+      dev.hostname,
+      dev.ip,
+      ...(Array.isArray(dev.ips) ? dev.ips : []),
+      ...(Array.isArray(dev.ipv6) ? dev.ipv6 : []),
+      ...(Array.isArray(dev.sources) ? dev.sources : []),
+      dev.interface,
+      dev.group,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return fields.includes(needle);
+  });
+}
+
+function formatLastSeen(value) {
+  if (value == null || value === "") return "";
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return "";
+  let delta = numeric;
+  const now = Date.now() / 1000;
+  if (numeric > 1e9) {
+    delta = Math.max(0, now - numeric);
+  }
+  if (delta < 60) return "just now";
+  if (delta < 3600) return `${Math.round(delta / 60)} min ago`;
+  if (delta < 86400) return `${Math.round(delta / 3600)} hr ago`;
+  const days = Math.round(delta / 86400);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 function renderDiscovered() {
   const container = document.getElementById("discovered-list");
   if (!container) return;
-  if (!state.discovered.length) {
-    container.innerHTML = '<p class="muted">No devices discovered on LAN.</p>';
+  const filterInput = document.getElementById("discovered-filter");
+  if (filterInput && filterInput.value !== state.discoveredFilter) {
+    filterInput.value = state.discoveredFilter;
+  }
+  const devices = filterDiscoveredList(state.discovered);
+  if (!devices.length) {
+    container.innerHTML = `<p class="muted">${state.discoveredFilter ? "No devices match your search." : "No devices discovered on LAN."}</p>`;
     return;
   }
-  const rows = state.discovered.map((dev) => {
-    const managed = state.form.clients.some((c) => c.mac === dev.mac);
+  const rows = devices.map((dev) => {
+    const managedClient = state.form.clients.find((c) => c.mac === dev.mac);
+    const managed = Boolean(managedClient);
+    const ipParts = [];
+    if (dev.ip) ipParts.push(dev.ip);
+    if (Array.isArray(dev.ips)) {
+      dev.ips.forEach((ip) => {
+        if (ip && !ipParts.includes(ip)) ipParts.push(ip);
+      });
+    }
+    if (Array.isArray(dev.ipv6)) {
+      dev.ipv6.forEach((ip) => {
+        if (ip && !ipParts.includes(ip)) ipParts.push(ip);
+      });
+    }
+    const ipLabel = ipParts.length ? ` • ${escapeHtml(ipParts.join(" · "))}` : "";
+    const tags = [];
+    if (dev.group) tags.push(`<span class="tag group-tag">Group: ${escapeHtml(dev.group)}</span>`);
+    if (dev.interface) tags.push(`<span class="tag">${escapeHtml(dev.interface)}</span>`);
+    if (typeof dev.signal === "number") tags.push(`<span class="tag">Signal ${escapeHtml(String(dev.signal))} dBm</span>`);
+    const lastSeen = formatLastSeen(dev.last_seen);
+    if (lastSeen) tags.push(`<span class="tag muted">${escapeHtml(lastSeen)}</span>`);
+    if (Array.isArray(dev.sources) && dev.sources.length) {
+      dev.sources.forEach((src) => {
+        if (!src) return;
+        tags.push(`<span class="tag subtle">${escapeHtml(src)}</span>`);
+      });
+    }
+    const tagLine = tags.length ? `<div class="device-meta">${tags.join("")}</div>` : "";
+    const managedLabel = managed
+      ? `<span class="muted">Managed${managedClient && managedClient.group ? ` (${escapeHtml(managedClient.group)})` : ""}</span>`
+      : '<button class="mini" data-add="1">Add</button>';
     return `
       <div class="device" data-mac="${dev.mac}">
         <div class="device-info">
           <strong>${escapeHtml(dev.hostname || dev.mac)}</strong>
-          <span>${escapeHtml(dev.mac)}${dev.ip ? " • " + escapeHtml(dev.ip) : ""}</span>
+          <span>${escapeHtml(dev.mac)}${ipLabel}</span>
+          ${tagLine}
         </div>
-        ${managed ? '<span class="muted">Managed</span>' : '<button class="mini" data-add="1">Add</button>'}
+        ${managedLabel}
       </div>
     `;
   });
-  container.innerHTML = rows.join("");
+  container.innerHTML = rows.join("\n");
   container.querySelectorAll(".device button[data-add]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const mac = e.target.closest(".device").dataset.mac;
@@ -616,6 +736,18 @@ function attachStaticHandlers() {
     renderGroups();
     renderQuickActions();
   });
+
+  const scanBtn = document.getElementById("btn-scan");
+  if (scanBtn) {
+    scanBtn.addEventListener("click", () => refresh(true));
+  }
+  const discoveryFilter = document.getElementById("discovered-filter");
+  if (discoveryFilter) {
+    discoveryFilter.addEventListener("input", (e) => {
+      state.discoveredFilter = e.target.value;
+      renderDiscovered();
+    });
+  }
 
   document.getElementById("btn-refresh").addEventListener("click", () => refresh());
   document.getElementById("btn-sync").addEventListener("click", async () => {

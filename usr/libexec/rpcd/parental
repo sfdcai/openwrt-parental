@@ -150,58 +150,281 @@ local function merge_fields(target, fields)
   end
 end
 
-local function gather_discovered()
+local function decode_json(raw)
+  if not raw or raw == "" then return nil end
+  local ok, parsed = pcall(json.parse, raw)
+  if ok and type(parsed) == "table" then return parsed end
+  return nil
+end
+
+local function gather_discovered(managed_clients)
   local discovered = {}
   local seen = {}
+  local lan_ifaces = {}
+
+  local function track_iface(name)
+    name = trim(name or "")
+    if name ~= "" then
+      lan_ifaces[name] = true
+    end
+  end
+
   local function add(mac, fields)
     mac = (mac or ""):upper()
-    if mac == "" then return end
+    if mac == "" or mac == "00:00:00:00:00:00" then return end
     local entry = seen[mac]
     if not entry then
       entry = { mac = mac }
       seen[mac] = entry
       table.insert(discovered, entry)
     end
-    merge_fields(entry, fields)
-  end
 
-  local status_raw = sh("ubus call network.interface.lan status")
-  local ok, status = pcall(json.parse, status_raw)
-  if ok and type(status) == "table" then
-    local neighbors = status.neighbors or status.neighbor
-    if type(neighbors) == "table" then
-      for _, n in ipairs(neighbors) do
-        if type(n) == "table" then
-          add(n.lladdr or n.mac or n["mac-address"], {
-            ip = n.ip or n.ipv4 or n.address,
-            hostname = n.host or n.name,
-            source = n.source or "lan"
-          })
+    if type(fields) == "table" then
+      if fields.interface then
+        track_iface(fields.interface)
+        entry.interface = entry.interface or fields.interface
+      end
+      if fields.group and (not entry.group or entry.group == "") then
+        entry.group = fields.group
+      end
+      if fields.signal then
+        local sig = tonumber(fields.signal)
+        if sig and (not entry.signal or sig > entry.signal) then
+          entry.signal = sig
         end
       end
+      if fields.last_seen then
+        local ts = tonumber(fields.last_seen)
+        if ts and (not entry.last_seen or ts > entry.last_seen) then
+          entry.last_seen = ts
+        end
+      end
+      if fields.ipv6 and (not entry.ipv6 or entry.ipv6 == "") then
+        entry.ipv6 = fields.ipv6
+      end
+      local src = fields.source or fields.origin
+      if src and src ~= "" then
+        entry.sources = entry.sources or {}
+        local exists = false
+        for _, val in ipairs(entry.sources) do
+          if val == src then exists = true break end
+        end
+        if not exists then table.insert(entry.sources, src) end
+      end
+      merge_fields(entry, {
+        hostname = fields.hostname or fields.name,
+        ip = fields.ip or fields.address,
+        vendor = fields.vendor,
+        interface = fields.interface,
+      })
     end
+  end
+
+  local function collect_neighbors(list, origin, iface)
+    if type(list) ~= "table" then return end
+    for _, item in pairs(list) do
+      if type(item) == "table" then
+        add(item.lladdr or item.mac or item["mac-address"], {
+          ip = item.ip or item.ipv4 or item.address or item["ipv4-address"],
+          ipv6 = item.ipv6 or item["ipv6-address"],
+          hostname = item.host or item.name or item.hostname,
+          interface = iface or item.ifname or item.interface,
+          source = origin or item.source,
+          last_seen = item.last_seen or item.time or item.age,
+        })
+      end
+    end
+  end
+
+  local function collect_dhcp(list, origin)
+    if type(list) ~= "table" then return end
+    for _, lease in pairs(list) do
+      if type(lease) == "table" then
+        add(lease.mac or lease.hwaddr, {
+          ip = lease.ip or lease.ipaddr or lease["ipv4-address"],
+          hostname = lease.hostname or lease.name,
+          interface = lease.interface,
+          source = origin or "dhcp",
+          last_seen = lease.expires or lease.valid or lease.lease_time,
+        })
+      end
+    end
+    used_alias[final] = true
+    alias_for_index[idx] = final
+    map_alias(group.section, final)
+    map_alias(group.id, final)
+    map_alias(group.name, final)
+    map_alias(candidate, final)
+    map_alias(final, final)
+    groups[idx] = group
+    group.section = final
+  end
+
+  local function collect_assoc(map, origin, iface)
+    if type(map) ~= "table" then return end
+    for mac, info in pairs(map) do
+      if type(info) == "table" then
+        local derived_iface = iface or info.ifname
+        if (not derived_iface or derived_iface == "") and type(origin) == "string" then
+          local hint = origin:match("%.([^.]+)$")
+          if hint and hint ~= "" then derived_iface = hint end
+        end
+        add(mac, {
+          hostname = info.hostname or info.name,
+          ip = info.ipaddr or info.ip,
+          interface = derived_iface,
+          source = origin,
+          signal = info.signal or info.signal_avg or info.rssi,
+        })
+      elseif type(info) == "string" and type(mac) == "string" then
+        add(mac, { source = origin, interface = iface })
+      end
+    end
+  end
+
+  local status = decode_json(sh("ubus call network.interface.lan status"))
+  if status then
+    track_iface(status.ifname)
+    track_iface(status.l3_device)
+    track_iface(status.device)
+    collect_neighbors(status.neighbors or status.neighbor, "lan", status.ifname)
     local dhcp = status["dhcp-server"]
-    if type(dhcp) == "table" and type(dhcp.clients) == "table" then
-      for _, c in ipairs(dhcp.clients) do
-        if type(c) == "table" then
-          add(c.mac or c.hwaddr, {
-            ip = c.ip or c["ipv4-address"],
-            hostname = c.name,
-            source = "dhcp"
-          })
+    if type(dhcp) == "table" then
+      collect_dhcp(dhcp.clients, "dhcp")
+    end
+  end
+
+  local dump = decode_json(sh("ubus call network.interface dump"))
+  if dump and type(dump.interface) == "table" then
+    for _, iface in ipairs(dump.interface) do
+      if type(iface) == "table" then
+        track_iface(iface.device)
+        track_iface(iface.l3_device)
+        collect_neighbors(iface.neighbor or iface.neighbors, iface.interface or iface.device, iface.device)
+      end
+    end
+  end
+
+  local device_list = {}
+  for name, _ in pairs(lan_ifaces) do
+    table.insert(device_list, name)
+  end
+  if #device_list == 0 then
+    device_list = { "br-lan", "lan" }
+  end
+
+  for _, dev in ipairs(device_list) do
+    local payload = string.format("'{\"name\":\"%s\"}'", dev)
+    local info = decode_json(sh(string.format("ubus call network.device status %s", payload)))
+    if info then
+      collect_neighbors(info.neighbor or info.neighbors, dev, info.ifname or dev)
+    end
+  end
+
+  local dhcp4 = decode_json(sh("ubus call dhcp ipv4leases"))
+  if dhcp4 then
+    collect_dhcp(dhcp4.leases or dhcp4.clients, "dhcpv4")
+  end
+  local dhcp6 = decode_json(sh("ubus call dhcp ipv6leases"))
+  if dhcp6 then
+    collect_dhcp(dhcp6.leases or dhcp6.clients, "dhcpv6")
+  end
+
+  local wireless = decode_json(sh("ubus call network.wireless status"))
+  if wireless then
+    local ifaces = wireless.interfaces or wireless["radio0"] or wireless["interface"]
+    if type(ifaces) == "table" then
+      for _, iface in pairs(ifaces) do
+        if type(iface) == "table" then
+          track_iface(iface.ifname)
+          collect_assoc(iface.assoclist or iface.stations, iface.ifname or "wireless", iface.ifname)
         end
       end
     end
   end
 
-  local f = io.open("/tmp/dhcp.leases", "r")
-  if f then
-    for line in f:lines() do
-      local _, mac, ip, host = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
-      add(mac, { ip = ip, hostname = host ~= "*" and host or nil, source = "dhcp" })
+  local hostapd_list = sh("ubus -S list hostapd.* 2>/dev/null")
+  for line in hostapd_list:gmatch("[^\n]+") do
+    local obj = trim(line)
+    if obj ~= "" then
+      local res = decode_json(sh(string.format("ubus call %s get_clients", obj)))
+      if res then
+        if type(res.clients) == "table" then
+          collect_assoc(res.clients, obj, res.ifname)
+        end
+        if type(res.stations) == "table" then
+          collect_assoc(res.stations, obj, res.ifname)
+        end
+      end
     end
-    f:close()
   end
+
+  local iwinfo_list = sh("ubus -S list iwinfo.* 2>/dev/null")
+  for line in iwinfo_list:gmatch("[^\n]+") do
+    local obj = trim(line)
+    if obj ~= "" then
+      local res = decode_json(sh(string.format("ubus call %s assoclist", obj)))
+      if res and type(res.results) == "table" then
+        for _, station in pairs(res.results) do
+          if type(station) == "table" then
+            add(station.mac, {
+              signal = station.signal or station.rssi,
+              interface = station.ifname or res.ifname,
+              source = obj,
+            })
+          end
+        end
+      end
+    end
+  end
+
+  local ip_now = os.time and os.time() or nil
+  for _, dev in ipairs(device_list) do
+    local raw = sh(string.format("ip neigh show dev %s 2>/dev/null", dev))
+    for line in raw:gmatch("[^\n]+") do
+      local ip = line:match("^(%S+)")
+      local mac = line:match("lladdr (%S+)")
+      if mac then
+        add(mac, { ip = ip, interface = dev, source = "ip", last_seen = ip_now })
+      end
+    end
+  end
+
+  local leases = io.open("/tmp/dhcp.leases", "r")
+  if leases then
+    for line in leases:lines() do
+      local _, mac, ip, host = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+      add(mac, {
+        ip = ip,
+        hostname = host ~= "*" and host or nil,
+        source = "dhcp",
+      })
+    end
+    leases:close()
+  end
+
+  if type(managed_clients) == "table" then
+    for _, client in ipairs(managed_clients) do
+      if type(client) == "table" then
+        add(client.mac, {
+          hostname = client.name,
+          group = client.group,
+          source = "configured",
+        })
+      end
+    end
+  end
+
+  table.sort(discovered, function(a, b)
+    local ah = trim(a.hostname or ""):lower()
+    local bh = trim(b.hostname or ""):lower()
+    if ah ~= bh then
+      if ah == "" then return false end
+      if bh == "" then return true end
+      return ah < bh
+    end
+    return (a.mac or "") < (b.mac or "")
+  end)
 
   return discovered
 end
@@ -358,7 +581,7 @@ methods.get_overview = {
   args = {},
   call = function()
     local data = parse_uci()
-    data.discovered = gather_discovered()
+    data.discovered = gather_discovered(data.clients_list)
     return 0, data
   end
 }

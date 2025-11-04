@@ -1,3 +1,8 @@
+## 2.2.1
+
+- Expanded LAN discovery to merge DHCP leases, hostapd/iwinfo station data, wireless status, and ARP neighbors, surfacing managed clients with interface, signal, and last-seen metadata via `parental.get_overview`.
+- Enhanced the dashboard's discovered-device panel with search, manual scan controls, tagged metadata, and managed-group indicators to streamline onboarding.
+
 ## 2.2.0
 
 - Web UI overhaul with configurable themes, live dashboards, discovered-device onboarding, and in-browser editing of groups, clients, and global settings.

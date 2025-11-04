@@ -102,7 +102,13 @@
           <div id="usage-bars" class="usage"></div>
         </article>
         <article class="card">
-          <h3>Discovered Devices</h3>
+          <div class="card-header">
+            <h3>Discovered Devices</h3>
+            <div class="discovered-controls">
+              <input type="search" id="discovered-filter" placeholder="Search host, MAC or IP">
+              <button id="btn-scan" class="secondary mini">Scan</button>
+            </div>
+          </div>
           <div id="discovered-list" class="discovered"></div>
         </article>
       </div>

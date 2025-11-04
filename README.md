@@ -11,6 +11,7 @@ A modern, API-first parental control suite for OpenWrt routers using `nftables` 
 *   **Manual Overrides**: Instantly block, unblock, or pause a client's internet access for a set duration.
 *   **AdGuard Home Integration**: Syncs clients to AdGuard Home for DNS-level filtering.
 *   **Web Interface**: A standalone dashboard with live refresh, usage graphs, quick actions, and full configuration editing (no manual UCI edits required).
+*   **LAN Discovery**: Correlates DHCP leases, wireless associations, hostapd stations, and ARP/neighbor tables to surface active devices for fast onboarding.
 *   **JSON/ubus API**: All functionality is exposed via `ubus` for easy integration and scripting.
 *   **Health Monitoring**: An API endpoint to check the status of critical components.
 
@@ -47,10 +48,12 @@ The installer verifies and installs `uhttpd`, `uhttpd-mod-ubus`, `lua`, `luci-li
 
 Visit `http://<router-ip>:8088` to access the dashboard:
 
-* **Dashboard** – Live client list with per-device actions, DNS query activity bars, and an auto-updating discovered-device list for quick onboarding.
+* **Dashboard** – Live client list with per-device actions, DNS query activity bars, and a searchable discovered-device explorer (with interface/source tags, last-seen hints, and one-click onboarding).
 * **Groups** – Create, rename, or remove groups; configure DNS profiles, overlapping schedules, and optional daily quotas in minutes.
 * **Settings** – Toggle enforcement, set the default policy, configure AdGuard Home, and manage Telegram credentials.
 * **Theme** – Switch between light, dark, or auto; the preference is stored locally per browser.
+
+Use the **Scan** button in the discovered-devices panel to force a fresh pull from DHCP, wireless, and neighbor sources; the search box filters by hostname, MAC, IP, interface, or data source.
 
 Unsaved edits are highlighted in the header. Click **Save Configuration** to push changes via the `parental.save_config` ubus method and optionally reload rules with **Apply Rules**.
 

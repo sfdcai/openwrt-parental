@@ -333,6 +333,17 @@ button:hover:not(:disabled) {
   gap: 0.75rem;
 }
 
+.discovered-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.discovered-controls input[type="search"] {
+  flex: 1;
+  min-width: 0;
+}
+
 .discovered .device {
   border: 1px dashed var(--border);
   padding: 0.75rem;
@@ -353,6 +364,37 @@ button:hover:not(:disabled) {
 .discovered .device-info span {
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.discovered .device-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tag.group-tag {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tag.muted {
+  color: var(--muted);
+}
+
+.tag.subtle {
+  border-style: dashed;
 }
 
 .quick-actions {
