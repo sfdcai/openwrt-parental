@@ -1,3 +1,10 @@
+## 2.2.0
+
+- Web UI overhaul with configurable themes, live dashboards, discovered-device onboarding, and in-browser editing of groups, clients, and global settings.
+- Added `parental.save_config` ubus method plus richer overview data (discovered hosts) to support UI-driven configuration.
+- Bootstrapper and installer now auto-install required packages (`curl`, `unzip`, `lua`, `luci-lib-jsonc`, `uhttpd`, `uhttpd-mod-ubus`) and enable the `/ubus` handler for the dedicated UI listener.
+- README refreshed with UI workflow, dependency automation, and new API documentation.
+
 ## 2.1.4
 
 - Installer now ensures `uhttpd` is installed and configures a dedicated listener for the UI, with an opt-out for `opkg` updates.

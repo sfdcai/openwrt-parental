@@ -10,13 +10,46 @@ fail() {
   exit 1
 }
 
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || fail "Required command '$1' not found. Install it with opkg (e.g. opkg update && opkg install $1)."
+OPKG_BIN="${OPKG_BIN:-$(command -v opkg 2>/dev/null || true)}"
+OPKG_UPDATED=0
+
+ensure_pkg() {
+  pkg="$1"
+  [ -n "$OPKG_BIN" ] || return 1
+  if "$OPKG_BIN" list-installed "$pkg" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ "${BOOTSTRAP_SKIP_OPKG_UPDATE:-0}" != "1" ] && [ $OPKG_UPDATED -eq 0 ]; then
+    log "Updating opkg package list"
+    if "$OPKG_BIN" update >/dev/null 2>&1; then
+      OPKG_UPDATED=1
+    else
+      log "opkg update failed, continuing with install attempts"
+      OPKG_UPDATED=1
+    fi
+  fi
+  log "Installing package $pkg"
+  "$OPKG_BIN" install "$pkg" >/dev/null 2>&1 || "$OPKG_BIN" install "$pkg" || return 1
 }
 
-for cmd in curl unzip sh mktemp; do
-  require_cmd "$cmd"
-done
+ensure_cmd() {
+  cmd="$1"
+  shift
+  if command -v "$cmd" >/dev/null 2>&1; then
+    return 0
+  fi
+  for pkg in "$@"; do
+    if ensure_pkg "$pkg"; then
+      command -v "$cmd" >/dev/null 2>&1 && return 0
+    fi
+  done
+  [ $# -gt 0 ] && fail "Required command '$cmd' not found; attempted to install package(s): $*" || fail "Required command '$cmd' not found."
+}
+
+ensure_cmd sh
+ensure_cmd mktemp busybox coreutils-mktemp
+ensure_cmd curl curl
+ensure_cmd unzip unzip busybox
 
 REPO="${REPO:-sfdcai/openwrt-parental}"
 ARCHIVE_NAME="${ARCHIVE_NAME:-parental_suite_v2.zip}"

@@ -33,6 +33,49 @@ UI_PORT="${PARENTAL_UI_PORT:-8088}"
 UI_ROOT="/www/parental-ui"
 PAYLOAD_ROOT="$(pwd)"
 
+OPKG_UPDATED=0
+
+ensure_package() {
+  pkg="$1"
+  [ -n "$OPKG_BIN" ] || return 1
+  if "$OPKG_BIN" list-installed "$pkg" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ "${PARENTAL_SKIP_OPKG_UPDATE:-0}" != "1" ] && [ $OPKG_UPDATED -eq 0 ]; then
+    log "Updating opkg package list"
+    if "$OPKG_BIN" update >/dev/null 2>&1; then
+      OPKG_UPDATED=1
+    else
+      warn "opkg update failed; continuing with install attempts"
+      OPKG_UPDATED=1
+    fi
+  fi
+  log "Installing package $pkg"
+  "$OPKG_BIN" install "$pkg" >/dev/null 2>&1 || "$OPKG_BIN" install "$pkg"
+}
+
+ensure_command() {
+  cmd="$1"
+  shift
+  if command -v "$cmd" >/dev/null 2>&1; then
+    return 0
+  fi
+  for pkg in "$@"; do
+    if ensure_package "$pkg"; then
+      command -v "$cmd" >/dev/null 2>&1 && return 0
+    fi
+  done
+  return 1
+}
+
+NEEDED_PACKAGES="uhttpd uhttpd-mod-ubus luci-lib-jsonc lua curl"
+for pkg in $NEEDED_PACKAGES; do
+  ensure_package "$pkg" || warn "Failed to ensure package $pkg (install manually)"
+done
+
+ensure_command curl curl || fail "curl is required"
+ensure_command lua lua luajit || fail "Lua interpreter is required"
+
 ensure_uhttpd() {
   if [ -x /etc/init.d/uhttpd ]; then
     return 0
@@ -115,6 +158,8 @@ configure_uhttpd() {
   "$UCI_BIN" set uhttpd.$section.realm='Parental Suite'
   "$UCI_BIN" set uhttpd.$section.rfc1918_filter='1'
   "$UCI_BIN" set uhttpd.$section.redirect_https='0'
+  "$UCI_BIN" -q delete uhttpd.$section.ubus_prefix >/dev/null 2>&1 || true
+  "$UCI_BIN" add_list uhttpd.$section.ubus_prefix='/ubus'
   "$UCI_BIN" -q delete uhttpd.$section.network >/dev/null 2>&1 || true
   "$UCI_BIN" add_list uhttpd.$section.network='lan'
   "$UCI_BIN" -q delete uhttpd.$section.listen_http >/dev/null 2>&1 || true
