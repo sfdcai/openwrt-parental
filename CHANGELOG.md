@@ -1,3 +1,7 @@
+## 2.1.4
+
+- Installer now bootstraps BusyBox `httpd` automatically via `opkg` when missing, with an opt-out for package list refreshes.
+
 ## 2.1.3
 
 - Made `bootstrap.sh` fall back to GitHub source archives when release assets are missing and locate the installer within extracted directories.

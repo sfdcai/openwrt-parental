@@ -27,7 +27,35 @@ for cmd in cp find mkdir uci; do
 done
 
 HTTPD_BIN="${HTTPD_BIN:-$(command -v httpd 2>/dev/null || true)}"
-[ -n "$HTTPD_BIN" ] || fail "BusyBox httpd is required (install the 'busybox-httpd' package)."
+OPKG_BIN="${OPKG_BIN:-$(command -v opkg 2>/dev/null || true)}"
+
+ensure_httpd() {
+  if [ -n "$HTTPD_BIN" ]; then
+    return 0
+  fi
+
+  if [ -z "$OPKG_BIN" ]; then
+    return 1
+  fi
+
+  if ! "$OPKG_BIN" list-installed busybox-httpd >/dev/null 2>&1; then
+    log "Installing busybox-httpd via opkg"
+    if [ "${PARENTAL_SKIP_OPKG_UPDATE:-0}" != "1" ]; then
+      log "Updating opkg package list"
+      if ! "$OPKG_BIN" update; then
+        warn "opkg update failed; continuing with install attempt"
+      fi
+    fi
+    "$OPKG_BIN" install busybox-httpd >/dev/null 2>&1 || "$OPKG_BIN" install busybox-httpd || return 1
+  fi
+
+  HTTPD_BIN="${HTTPD_BIN:-$(command -v httpd 2>/dev/null || true)}"
+  [ -n "$HTTPD_BIN" ]
+}
+
+if ! ensure_httpd; then
+  fail "BusyBox httpd is required (install the 'busybox-httpd' package)."
+fi
 PIDOF_BIN="$(command -v pidof 2>/dev/null || true)"
 UCI_BIN="$(command -v uci)"
 
