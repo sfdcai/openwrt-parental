@@ -8,28 +8,35 @@
 </head>
 <body data-theme="light">
   <header class="topbar">
-    <div class="brand">
-      <h1>Parental Suite v2</h1>
-      <div id="health-status" class="status-chip">Disconnected</div>
-    </div>
-    <div class="top-actions">
-      <label class="theme-picker">
-        Theme
-        <select id="theme-mode">
-          <option value="auto">Auto</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </label>
-      <button id="btn-refresh" class="secondary">Refresh</button>
-      <button id="btn-apply" class="secondary">Apply Rules</button>
-      <button id="btn-sync" class="secondary">Sync AdGuard</button>
-      <button id="btn-save" class="primary">Save Configuration</button>
+    <div class="container">
+      <div class="brand">
+        <h1>Parental Suite v2</h1>
+        <div class="status-line">
+          <div id="health-status" class="status-chip">Disconnected</div>
+          <div id="connection-hint" class="status-hint">Waiting for RPC data…</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <label class="theme-picker">
+          Theme
+          <select id="theme-mode">
+            <option value="auto">Auto</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <button id="btn-refresh" class="button is-light">Refresh</button>
+        <button id="btn-apply" class="button is-light">Apply Rules</button>
+        <button id="btn-sync" class="button is-light">Sync AdGuard</button>
+        <button id="btn-save" class="button is-primary">Save Configuration</button>
+      </div>
     </div>
   </header>
 
   <main>
-    <section class="summary-grid">
+    <section class="section">
+      <div class="container">
+        <section class="summary-grid">
       <article class="card">
         <h2>Overview</h2>
         <dl class="kv" id="overview-summary">
@@ -61,15 +68,15 @@
         </div>
         <p class="hint">Select individual clients below for granular control.</p>
       </article>
-    </section>
+        </section>
 
-    <nav class="tabs">
-      <button class="tab-button active" data-tab="dashboard">Dashboard</button>
-      <button class="tab-button" data-tab="groups">Groups</button>
-      <button class="tab-button" data-tab="settings">Settings</button>
-    </nav>
+        <nav class="tabs">
+          <button class="tab-button active" data-tab="dashboard">Dashboard</button>
+          <button class="tab-button" data-tab="groups">Groups</button>
+          <button class="tab-button" data-tab="settings">Settings</button>
+        </nav>
 
-    <section id="tab-dashboard" class="tab-panel active">
+        <section id="tab-dashboard" class="tab-panel active">
       <div class="dashboard-grid">
         <article class="card">
           <div class="card-header">
@@ -94,7 +101,7 @@
             </tbody>
           </table>
           <div class="table-actions">
-            <button id="btn-add-client" class="secondary">Add Client</button>
+            <button id="btn-add-client" class="button is-light">Add Client</button>
           </div>
         </article>
         <article class="card">
@@ -106,25 +113,25 @@
             <h3>Discovered Devices</h3>
             <div class="discovered-controls">
               <input type="search" id="discovered-filter" placeholder="Search host, MAC or IP">
-              <button id="btn-scan" class="secondary mini">Scan</button>
+              <button id="btn-scan" class="button is-light is-small">Scan</button>
             </div>
           </div>
           <div id="discovered-list" class="discovered"></div>
         </article>
       </div>
-    </section>
+        </section>
 
-    <section id="tab-groups" class="tab-panel">
+        <section id="tab-groups" class="tab-panel">
       <article class="card">
         <div class="card-header">
           <h3>Groups &amp; Schedules</h3>
-          <button id="btn-add-group" class="secondary">Add Group</button>
+          <button id="btn-add-group" class="button is-light">Add Group</button>
         </div>
         <div id="groups-container" class="group-list"></div>
       </article>
-    </section>
+        </section>
 
-    <section id="tab-settings" class="tab-panel">
+        <section id="tab-settings" class="tab-panel">
       <article class="card">
         <h3>Global Settings</h3>
         <form id="settings-form" class="settings-form" autocomplete="off">
@@ -166,6 +173,19 @@
           </label>
         </form>
       </article>
+      <article class="card">
+        <div class="card-header">
+          <h3>Diagnostics</h3>
+          <div class="debug-actions">
+            <button id="btn-debug" class="button is-light">Collect Debug Report</button>
+            <button id="btn-debug-copy" class="button is-light is-small">Copy</button>
+          </div>
+        </div>
+        <p class="muted">Run <code>/usr/share/parental/scripts/debug.sh</code> on the router or use the button above to capture diagnostics.</p>
+        <textarea id="debug-output" class="mono" rows="10" readonly placeholder="No debug output captured yet."></textarea>
+      </article>
+        </section>
+      </div>
     </section>
   </main>
 

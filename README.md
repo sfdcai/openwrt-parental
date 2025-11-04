@@ -13,7 +13,7 @@ A modern, API-first parental control suite for OpenWrt routers using `nftables` 
 *   **Web Interface**: A standalone dashboard with live refresh, usage graphs, quick actions, and full configuration editing (no manual UCI edits required).
 *   **LAN Discovery**: Correlates DHCP leases, wireless associations, hostapd stations, and ARP/neighbor tables to surface active devices for fast onboarding.
 *   **JSON/ubus API**: All functionality is exposed via `ubus` for easy integration and scripting.
-*   **Health Monitoring**: An API endpoint to check the status of critical components.
+*   **Health Monitoring & Diagnostics**: Connection-aware status chips, a health JSON endpoint, and a bundled debug collector for rapid support.
 
 ### Quick Install
 
@@ -48,14 +48,22 @@ The installer verifies and installs `uhttpd`, `uhttpd-mod-ubus`, `lua`, `luci-li
 
 Visit `http://<router-ip>:8088` to access the dashboard:
 
-* **Dashboard** – Live client list with per-device actions, DNS query activity bars, and a searchable discovered-device explorer (with interface/source tags, last-seen hints, and one-click onboarding).
+* **Dashboard** – Live client list with per-device actions, DNS query activity bars, and a searchable discovered-device explorer (with interface/source tags, last-seen hints, and one-click onboarding). Connection issues are surfaced directly in the header.
 * **Groups** – Create, rename, or remove groups; configure DNS profiles, overlapping schedules, and optional daily quotas in minutes.
-* **Settings** – Toggle enforcement, set the default policy, configure AdGuard Home, and manage Telegram credentials.
+* **Settings** – Toggle enforcement, set the default policy, configure AdGuard Home, manage Telegram credentials, and generate/copy runtime debug bundles.
 * **Theme** – Switch between light, dark, or auto; the preference is stored locally per browser.
 
 Use the **Scan** button in the discovered-devices panel to force a fresh pull from DHCP, wireless, and neighbor sources; the search box filters by hostname, MAC, IP, interface, or data source.
 
+The UI ships with a bundled Bulma-based stylesheet (`www/parental-ui/vendor/bulma-lite.css`) so the design works offline without fetching assets from a CDN.
+
 Unsaved edits are highlighted in the header. Click **Save Configuration** to push changes via the `parental.save_config` ubus method and optionally reload rules with **Apply Rules**.
+
+### Diagnostics & Troubleshooting
+
+* Collect a full runtime snapshot with the UI's **Collect Debug Report** button (Settings → Diagnostics). The textarea can be copied directly or shared after redaction.
+* From the shell, run `/usr/share/parental/scripts/debug.sh` to gather service status, ACL presence, ubus registration, recent logs, and socket listeners. Provide the output when requesting help.
+* The header chip reflects RPC availability; hover the tooltip or check the adjacent hint for the last successful refresh or the active error message.
 
 ### Configuration
 
@@ -95,6 +103,9 @@ Examples (from router):
 
 - AdGuard querylog (latest 200)
   `ubus call parental adguard_querylog '{"limit":200}'`
+
+- Debug bundle (plain text report)
+  `ubus call parental debug_report {}`
 
 ### Telegram Bot
 

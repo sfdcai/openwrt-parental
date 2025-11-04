@@ -11,6 +11,12 @@ const state = {
   form: { globals: {}, groups: [], clients: [] },
   dirty: false,
   theme: "auto",
+  rpc: {
+    connected: false,
+    lastSuccess: null,
+    lastError: null,
+  },
+  debugReport: "",
 };
 
 let toastTimer = null;
@@ -29,11 +35,21 @@ async function ubusCall(object, method, params = {}) {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const json = await response.json();
-    if (json.error) throw new Error(JSON.stringify(json.error));
-    return json.result && json.result[1] ? json.result[1] : json.result ? json.result[0] : null;
-  } catch (err) {
-    console.error("ubus error", object, method, err);
+    if (json.error) {
+      const msg = json.error.message || JSON.stringify(json.error);
+      const err = new Error(msg);
+      err.code = json.error.code;
+      throw err;
+    }
+    if (json.result && json.result[1]) return json.result[1];
+    if (json.result) return json.result[0];
     return null;
+  } catch (err) {
+    const wrapped = err instanceof Error ? err : new Error(String(err));
+    wrapped.object = object;
+    wrapped.method = method;
+    console.error("ubus error", object, method, err);
+    throw wrapped;
   }
 }
 
@@ -68,6 +84,20 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function describeError(err) {
+  if (!err) return "unknown error";
+  if (err instanceof Error) {
+    const prefix = err.object && err.method ? `${err.object}.${err.method}: ` : "";
+    return `${prefix}${err.message || String(err)}`;
+  }
+  if (typeof err === "string") return err;
+  try {
+    return JSON.stringify(err);
+  } catch (e) {
+    return String(err);
+  }
 }
 
 function mapDiscovered(list) {
@@ -207,7 +237,8 @@ function updateOverviewSummary() {
 function updateHealth() {
   const chip = document.getElementById("health-status");
   const kv = document.querySelectorAll("#health-breakdown div dd");
-  if (!state.health) {
+  const hint = document.getElementById("connection-hint");
+  if (!state.rpc.connected) {
     if (chip) {
       chip.textContent = "Disconnected";
       chip.classList.remove("good");
@@ -219,8 +250,31 @@ function updateHealth() {
       kv[2].textContent = "—";
       kv[3].textContent = "—";
     }
+    if (hint) {
+      const err = state.rpc.lastError ? describeError(state.rpc.lastError) : "Waiting for RPC data…";
+      hint.textContent = `RPC offline: ${err}`;
+    }
     return;
   }
+
+  if (!state.health) {
+    if (chip) {
+      chip.textContent = "Connected";
+      chip.classList.remove("bad");
+      chip.classList.add("good");
+    }
+    if (kv.length >= 4) {
+      kv[0].textContent = "—";
+      kv[1].textContent = "—";
+      kv[2].textContent = "—";
+      kv[3].textContent = "—";
+    }
+    if (hint) {
+      hint.textContent = "Connected – awaiting health metrics…";
+    }
+    return;
+  }
+
   const health = state.health;
   const nft = health.nft || "missing";
   const fw = health.fw4_chain || "missing";
@@ -237,6 +291,15 @@ function updateHealth() {
     chip.textContent = healthy ? "Healthy" : "Attention";
     chip.classList.toggle("good", healthy);
     chip.classList.toggle("bad", !healthy);
+  }
+  if (hint) {
+    let text = state.rpc.lastSuccess
+      ? `Last refresh ${new Date(state.rpc.lastSuccess).toLocaleTimeString()}`
+      : "Connected";
+    if (state.rpc.lastError) {
+      text += ` – Warning: ${describeError(state.rpc.lastError)}`;
+    }
+    hint.textContent = text;
   }
 }
 
@@ -335,15 +398,19 @@ function renderClients() {
         renderQuickActions();
         return;
       }
-      if (action === "pause") {
-        await ubusCall("parental", "pause_client", { mac, duration: 30 });
-        showToast(`Paused ${mac} for 30 minutes.`);
-      } else if (action === "block") {
-        await ubusCall("parental", "block_client", { mac });
-        showToast(`Blocked ${mac}.`);
-      } else if (action === "unblock") {
-        await ubusCall("parental", "unblock_client", { mac });
-        showToast(`Unblocked ${mac}.`);
+      try {
+        if (action === "pause") {
+          await ubusCall("parental", "pause_client", { mac, duration: 30 });
+          showToast(`Paused ${mac} for 30 minutes.`);
+        } else if (action === "block") {
+          await ubusCall("parental", "block_client", { mac });
+          showToast(`Blocked ${mac}.`);
+        } else if (action === "unblock") {
+          await ubusCall("parental", "unblock_client", { mac });
+          showToast(`Unblocked ${mac}.`);
+        }
+      } catch (err) {
+        showToast(`Action failed: ${describeError(err)}`, false);
       }
     });
   });
@@ -652,6 +719,13 @@ function renderSettings() {
   if (telegramChat) telegramChat.value = globals.telegram_chat_id || "";
 }
 
+function renderDebug() {
+  const output = document.getElementById("debug-output");
+  if (output) {
+    output.value = state.debugReport || "";
+  }
+}
+
 function renderQuickActions() {
   const buttons = document.querySelectorAll(".quick-actions .action");
   if (!buttons.length) return;
@@ -682,6 +756,7 @@ function renderAll() {
   renderGroups();
   renderSettings();
   renderQuickActions();
+  renderDebug();
 }
 
 function attachStaticHandlers() {
@@ -751,12 +826,20 @@ function attachStaticHandlers() {
 
   document.getElementById("btn-refresh").addEventListener("click", () => refresh());
   document.getElementById("btn-sync").addEventListener("click", async () => {
-    await ubusCall("parental", "sync_adguard");
-    showToast("AdGuard sync triggered.");
+    try {
+      await ubusCall("parental", "sync_adguard");
+      showToast("AdGuard sync triggered.");
+    } catch (err) {
+      showToast(`Failed to sync: ${describeError(err)}`, false);
+    }
   });
   document.getElementById("btn-apply").addEventListener("click", async () => {
-    await ubusCall("parental", "apply");
-    showToast("Firewall rules reloaded.");
+    try {
+      await ubusCall("parental", "apply");
+      showToast("Firewall rules reloaded.");
+    } catch (err) {
+      showToast(`Failed to apply rules: ${describeError(err)}`, false);
+    }
   });
   document.getElementById("btn-save").addEventListener("click", () => saveConfig());
 
@@ -779,15 +862,19 @@ function attachStaticHandlers() {
         showToast("No clients in this group.", false);
         return;
       }
-      if (action === "pause-all") {
-        await Promise.all(clients.map((c) => ubusCall("parental", "pause_client", { mac: c.mac, duration: 30 })));
-        showToast(`Paused ${clients.length} client(s).`);
-      } else if (action === "block-all") {
-        await Promise.all(clients.map((c) => ubusCall("parental", "block_client", { mac: c.mac })));
-        showToast(`Blocked ${clients.length} client(s).`);
-      } else if (action === "unblock-all") {
-        await Promise.all(clients.map((c) => ubusCall("parental", "unblock_client", { mac: c.mac })));
-        showToast(`Unblocked ${clients.length} client(s).`);
+      try {
+        if (action === "pause-all") {
+          await Promise.all(clients.map((c) => ubusCall("parental", "pause_client", { mac: c.mac, duration: 30 })));
+          showToast(`Paused ${clients.length} client(s).`);
+        } else if (action === "block-all") {
+          await Promise.all(clients.map((c) => ubusCall("parental", "block_client", { mac: c.mac })));
+          showToast(`Blocked ${clients.length} client(s).`);
+        } else if (action === "unblock-all") {
+          await Promise.all(clients.map((c) => ubusCall("parental", "unblock_client", { mac: c.mac })));
+          showToast(`Unblocked ${clients.length} client(s).`);
+        }
+      } catch (err) {
+        showToast(`Quick action failed: ${describeError(err)}`, false);
       }
     });
   });
@@ -827,33 +914,146 @@ function attachStaticHandlers() {
     state.form.globals.telegram_chat_id = e.target.value;
     setDirty(true);
   });
+
+  const debugBtn = document.getElementById("btn-debug");
+  if (debugBtn) {
+    debugBtn.addEventListener("click", async () => {
+      debugBtn.disabled = true;
+      try {
+        const result = await ubusCall("parental", "debug_report");
+        if (result && typeof result.report === "string") {
+          state.debugReport = result.report;
+          renderDebug();
+          showToast("Debug report collected.");
+        } else {
+          showToast("No debug data returned.", false);
+        }
+      } catch (err) {
+        showToast(`Failed to collect debug report: ${describeError(err)}`, false);
+      } finally {
+        debugBtn.disabled = false;
+      }
+    });
+  }
+
+  const debugCopy = document.getElementById("btn-debug-copy");
+  if (debugCopy) {
+    debugCopy.addEventListener("click", async () => {
+      if (!state.debugReport) {
+        showToast("No debug report captured yet.", false);
+        return;
+      }
+      try {
+        let copied = false;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(state.debugReport);
+          copied = true;
+        } else {
+          const output = document.getElementById("debug-output");
+          if (output && document.execCommand) {
+            output.focus();
+            output.select();
+            copied = document.execCommand("copy");
+            output.setSelectionRange(0, 0);
+            output.blur();
+          }
+        }
+        if (!copied) {
+          throw new Error("clipboard access unavailable");
+        }
+        showToast("Debug report copied to clipboard.");
+      } catch (err) {
+        showToast(`Copy failed: ${describeError(err)}`, false);
+      }
+    });
+  }
 }
 
 async function refresh(forceReload = false) {
   const refreshBtn = document.getElementById("btn-refresh");
   if (refreshBtn) refreshBtn.disabled = true;
+  let stampUpdated = false;
   try {
-    const [overview, health, querylog] = await Promise.all([
-      ubusCall("parental", "get_overview"),
-      ubusCall("parental", "health"),
-      ubusCall("parental", "adguard_querylog", { limit: 200 }),
-    ]);
-    if (health) state.health = health;
-    if (querylog && Array.isArray(querylog.entries)) state.querylog = querylog.entries;
-    if (overview) {
-      state.overview = overview;
-      state.discovered = mapDiscovered(overview.discovered);
-      if (!state.dirty || forceReload) {
-        state.form = buildFormFromOverview(overview);
-        setDirty(false);
+    const calls = [
+      {
+        object: "parental",
+        method: "get_overview",
+        run: () => ubusCall("parental", "get_overview"),
+        onSuccess: (overview) => {
+          if (!overview) return;
+          state.overview = overview;
+          state.discovered = mapDiscovered(overview.discovered);
+          if (!state.dirty || forceReload) {
+            state.form = buildFormFromOverview(overview);
+            setDirty(false);
+          }
+          stampUpdated = true;
+        },
+        onFailure: () => {
+          if (forceReload) {
+            state.overview = null;
+            state.discovered = [];
+          }
+        },
+      },
+      {
+        object: "parental",
+        method: "health",
+        run: () => ubusCall("parental", "health"),
+        onSuccess: (health) => {
+          state.health = health || null;
+          stampUpdated = true;
+        },
+        onFailure: () => {
+          state.health = null;
+        },
+      },
+      {
+        object: "parental",
+        method: "adguard_querylog",
+        run: () => ubusCall("parental", "adguard_querylog", { limit: 200 }),
+        onSuccess: (querylog) => {
+          if (querylog && Array.isArray(querylog.entries)) {
+            state.querylog = querylog.entries;
+            stampUpdated = true;
+          }
+        },
+      },
+    ];
+
+    const results = await Promise.allSettled(calls.map((c) => c.run()));
+    let successCount = 0;
+    const errors = [];
+    results.forEach((res, idx) => {
+      const call = calls[idx];
+      if (res.status === "fulfilled") {
+        successCount += 1;
+        if (call.onSuccess) call.onSuccess(res.value);
+      } else {
+        if (call.onFailure) call.onFailure(res.reason);
+        errors.push(res.reason);
       }
+    });
+
+    state.rpc.connected = successCount > 0;
+    if (state.rpc.connected) {
+      state.rpc.lastSuccess = Date.now();
+      state.rpc.lastError = errors.length ? errors[errors.length - 1] : null;
+    } else {
+      state.rpc.lastError = errors.length ? errors[errors.length - 1] : null;
     }
+
     renderAll();
     const stamp = document.getElementById("last-refresh");
-    if (stamp) stamp.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+    if (stamp && stampUpdated) {
+      stamp.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+    }
   } catch (err) {
     console.error("refresh error", err);
+    state.rpc.connected = false;
+    state.rpc.lastError = err;
     showToast("Failed to refresh data.", false);
+    renderAll();
   } finally {
     if (refreshBtn) refreshBtn.disabled = false;
   }
@@ -882,13 +1082,17 @@ function buildSavePayload() {
 async function saveConfig() {
   if (!state.dirty) return;
   const payload = buildSavePayload();
-  const result = await ubusCall("parental", "save_config", payload);
-  if (result && result.status === "ok") {
-    showToast("Configuration saved.");
-    setDirty(false);
-    await refresh(true);
-  } else {
-    showToast("Failed to save configuration.", false);
+  try {
+    const result = await ubusCall("parental", "save_config", payload);
+    if (result && result.status === "ok") {
+      showToast("Configuration saved.");
+      setDirty(false);
+      await refresh(true);
+    } else {
+      showToast("Failed to save configuration.", false);
+    }
+  } catch (err) {
+    showToast(`Failed to save configuration: ${describeError(err)}`, false);
   }
 }
 

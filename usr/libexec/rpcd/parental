@@ -1,6 +1,32 @@
 #!/usr/bin/lua
 -- rpcd plugin providing parental.* methods
-local json = require "luci.jsonc"
+
+local json
+do
+  local ok, lib = pcall(require, "luci.jsonc")
+  if ok and type(lib) == "table" and type(lib.parse) == "function" then
+    json = lib
+  else
+    local fallback_ok, fallback = pcall(require, "cjson.safe")
+    if fallback_ok and type(fallback) == "table" then
+      json = {
+        parse = function(raw)
+          if type(raw) ~= "string" then return nil end
+          local decoded = fallback.decode(raw)
+          if type(decoded) == "table" then return decoded end
+          return nil
+        end,
+      }
+    else
+      io.stderr:write("[parental] luci.jsonc unavailable, JSON parsing disabled\n")
+      json = {
+        parse = function(_)
+          return nil
+        end,
+      }
+    end
+  end
+end
 
 local function sh(cmd)
   local f = io.popen(cmd .. " 2>&1")
@@ -249,15 +275,6 @@ local function gather_discovered(managed_clients)
         })
       end
     end
-    used_alias[final] = true
-    alias_for_index[idx] = final
-    map_alias(group.section, final)
-    map_alias(group.id, final)
-    map_alias(group.name, final)
-    map_alias(candidate, final)
-    map_alias(final, final)
-    groups[idx] = group
-    group.section = final
   end
 
   local function collect_assoc(map, origin, iface)
@@ -357,6 +374,15 @@ local function gather_discovered(managed_clients)
         end
       end
     end
+    used_alias[final] = true
+    alias_for_index[idx] = final
+    map_alias(group.section, final)
+    map_alias(group.id, final)
+    map_alias(group.name, final)
+    map_alias(candidate, final)
+    map_alias(final, final)
+    groups[idx] = group
+    group.section = final
   end
 
   local iwinfo_list = sh("ubus -S list iwinfo.* 2>/dev/null")
@@ -638,6 +664,14 @@ methods.unblock_client = {
     if mac == "" then return 1 end
     local out = sh(string.format("/usr/share/parental/scripts/unblock_now.sh %s", mac))
     return 0, { out = out }
+  end
+}
+
+methods.debug_report = {
+  args = {},
+  call = function()
+    local out = sh("/usr/share/parental/scripts/debug.sh")
+    return 0, { report = out }
   end
 }
 

@@ -1,3 +1,10 @@
+## 2.2.2
+
+- Hardened the `parental` ubus plugin to tolerate missing JSON libraries, expose a `debug_report` endpoint, and surface better error logging instead of failing to register.
+- Added `/usr/share/parental/scripts/debug.sh` for on-device diagnostics and wired the installer/UI to make the report easily accessible.
+- Refreshed the web UI with a Bulma-inspired theme, explicit RPC connection hints, resilient ubus error handling, and a diagnostics panel with copy-to-clipboard debug bundles.
+- Documented the new troubleshooting workflow and debug API call in the README.
+
 ## 2.2.1
 
 - Expanded LAN discovery to merge DHCP leases, hostapd/iwinfo station data, wireless status, and ARP neighbors, surfacing managed clients with interface, signal, and last-seen metadata via `parental.get_overview`.
