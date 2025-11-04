@@ -3,8 +3,20 @@
 <meta charset="utf-8"><title>Parental Suite</title>
 <link rel="stylesheet" href="style.css">
 </head><body>
-<h1>Parental Suite v2</h1>
-<div id="status">Loading...</div>
-<table id="clients"><thead><tr><th>MAC</th><th>Action</th></tr></thead><tbody></tbody></table>
+<header>
+  <h1>Parental Suite v2</h1>
+  <div class="toolbar">
+    <label>Group:
+      <select id="group-filter"><option value="all">All</option></select>
+    </label>
+    <button id="btn-sync">Sync AdGuard</button>
+    <label class="toggle">
+      <input type="checkbox" id="toggle-dark"> Dark
+    </label>
+  </div>
+  <div id="status">Loading...</div>
+  <div id="usage"></div>
+</header>
+<table id="clients"><thead><tr><th>Client</th><th>Group</th><th>Actions</th></tr></thead><tbody></tbody></table>
 <script src="app.js"></script>
 </body></html>

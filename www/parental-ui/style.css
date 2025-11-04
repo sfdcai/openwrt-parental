@@ -1,4 +1,17 @@
-body{font-family:sans-serif;background:#f9f9f9;color:#222;padding:1em}
-h1{color:#005}
-table{border-collapse:collapse;width:100%}
-td,th{border:1px solid #ccc;padding:4px}
+body{font-family:sans-serif;background:#f9f9f9;color:#222;padding:1em;margin:0}
+header{position:sticky;top:0;background:inherit;padding-bottom:.5em}
+h1{color:#005;margin:.2em 0}
+.toolbar{display:flex;gap:.5em;align-items:center;margin:.3em 0}
+table{border-collapse:collapse;width:100%;background:#fff}
+td,th{border:1px solid #ccc;padding:6px}
+.bar{display:flex;align-items:center;gap:.5em;margin:.3em 0}
+.bar span{min-width:10em;display:inline-block}
+.bar .barfill{background:#4a90e2;color:#fff;padding:2px 6px;border-radius:2px;white-space:nowrap}
+.toggle{user-select:none}
+
+/* Dark mode */
+body.dark{background:#121212;color:#ddd}
+body.dark h1{color:#9bbcff}
+body.dark table{background:#1b1b1b}
+body.dark td,body.dark th{border-color:#333}
+body.dark .bar .barfill{background:#6aa0ff;color:#000}

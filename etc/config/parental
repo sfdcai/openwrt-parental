@@ -8,8 +8,8 @@ config global 'settings'
 config group 'kids'
   option name 'Kids'
   option dns_profile 'kids'
-  option schedule '07:00-20:30;mon-fri'
-  option schedule '08:00-21:00;sat-sun'
+  list schedule '07:00-20:30;mon-fri'
+  list schedule '08:00-21:00;sat-sun'
   list clients 'AA:BB:CC:DD:EE:01'
 
 config client

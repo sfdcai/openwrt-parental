@@ -213,3 +213,4 @@ EOF
 (cd "$WORKDIR" && zip -r "$ZIPFILE" . >/dev/null)
 echo "[+] Created $ZIPFILE"
 echo "[+] Copy to router and run: scp $ZIPFILE root@192.168.1.1:/tmp/ && ssh root@192.168.1.1 'cd /tmp && unzip parental_suite_v2.zip && sh install.sh'"
+

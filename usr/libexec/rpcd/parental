@@ -1,12 +1,127 @@
 #!/usr/bin/lua
 -- rpcd plugin providing parental.* methods
 local json=require"luci.jsonc"
-local function sh(c) local f=io.popen(c.." 2>&1");local o=f:read("*a");f:close();return o end
+local function sh(c)
+  local f=io.popen(c.." 2>&1");if not f then return "" end
+  local o=f:read("*a");f:close();return o or ""
+end
+
+local function trim(s) return (s or ""):gsub("^%s+",""):gsub("%s+$","") end
+
+-- Parse `uci -q show parental` into groups/clients tables
+local function parse_uci()
+  local out=sh("uci -q show parental")
+  local groups,clients,globals={},{}
+  for line in out:gmatch("[^\n]+") do
+    -- globals
+    local k,v=line:match("^parental%.settings%.([^.=]+)='(.-)'$")
+    if k then globals[k]=v goto continue end
+
+    -- groups options
+    local gidx,gkey,gval=line:match("^parental%._?@group%[(%d+)%]%.([^.=]+)='(.-)'$")
+    if gidx then
+      groups[gidx]=groups[gidx] or {id=gidx}
+      if gkey=="name" or gkey=="dns_profile" or gkey=="quota_daily_min" then
+        groups[gidx][gkey]=gval
+      elseif gkey=="schedule" then
+        local arr=groups[gidx].schedule or {}
+        arr[#arr+1]=gval
+        groups[gidx].schedule=arr
+      end
+      goto continue
+    end
+
+    -- clients options
+    local cidx,ckey,cval=line:match("^parental%._?@client%[(%d+)%]%.([^.=]+)='(.-)'$")
+    if cidx then
+      clients[cidx]=clients[cidx] or {id=cidx}
+      clients[cidx][ckey]=cval
+      goto continue
+    end
+
+    ::continue::
+  end
+
+  -- index groups by name for easy lookup
+  local groups_by_name={}
+  for _,g in pairs(groups) do
+    local key=g['.name'] or g.name or tostring(g.id)
+    groups_by_name[key]={
+      name=g.name or key,
+      dns_profile=g.dns_profile,
+      schedule=g.schedule or {},
+      quota_daily_min=g.quota_daily_min and tonumber(g.quota_daily_min) or nil,
+    }
+  end
+
+  -- clients keyed by mac
+  local clients_by_mac={}
+  for _,c in pairs(clients) do
+    if c.mac then
+      clients_by_mac[c.mac]={
+        mac=c.mac,
+        name=c.name,
+        group=c.group,
+        pause_until=c.pause_until and tonumber(c.pause_until) or nil,
+      }
+    end
+  end
+  return {globals=globals, groups=groups_by_name, clients=clients_by_mac}
+end
+
 local M,methods={},{}
-methods.get_overview={args={},call=function()return 0,{uci=sh("uci -q show parental") }end}
-methods.apply={args={},call=function()return 0,{out=sh("/usr/share/parental/scripts/apply.sh reload") }end}
-methods.health={args={},call=function()return 0,{out=sh("/usr/share/parental/scripts/health.sh") }end}
-methods.sync_adguard={args={},call=function()return 0,{out=sh("/usr/share/parental/scripts/adguard_sync.sh") }end}
+
+methods.get_overview={args={},call=function()
+  local data=parse_uci()
+  return 0,data
+end}
+
+methods.apply={args={},call=function()
+  return 0,{out=sh("/usr/share/parental/scripts/apply.sh reload")}
+end}
+
+methods.health={args={},call=function()
+  local raw=sh("/usr/share/parental/scripts/health.sh")
+  local ok,parsed=pcall(json.parse,raw)
+  if ok and parsed then return 0,parsed end
+  return 0,{raw=raw}
+end}
+
+methods.sync_adguard={args={},call=function()
+  return 0,{out=sh("/usr/share/parental/scripts/adguard_sync.sh")}
+end}
+
+methods.pause_client={args={mac="string",duration="integer"},call=function(a)
+  local mac=trim(a.mac or ""); local dur=tonumber(a.duration or 0) or 0
+  if mac=="" or dur<=0 then return 1 end
+  local out=sh(string.format("/usr/share/parental/scripts/pause.sh %s %d", mac, dur))
+  return 0,{out=out}
+end}
+
+methods.block_client={args={mac="string"},call=function(a)
+  local mac=trim(a.mac or ""); if mac=="" then return 1 end
+  local out=sh(string.format("/usr/share/parental/scripts/block_now.sh %s", mac))
+  return 0,{out=out}
+end}
+
+methods.unblock_client={args={mac="string"},call=function(a)
+  local mac=trim(a.mac or ""); if mac=="" then return 1 end
+  local out=sh(string.format("/usr/share/parental/scripts/unblock_now.sh %s", mac))
+  return 0,{out=out}
+end}
+
+methods.adguard_querylog={args={limit="integer"},call=function(a)
+  local limit=tonumber(a.limit or 200) or 200
+  local url=sh("uci -q get parental.settings.adguard_url"):gsub("\n$","")
+  local tok=sh("uci -q get parental.settings.adguard_token"):gsub("\n$","")
+  if url=="" then return 0,{entries={}} end
+  local cmd=string.format("/usr/bin/curl -sS -H 'Authorization: Bearer %s' '%s/control/querylog?offset=0&limit=%d'", tok, url, limit)
+  local raw=sh(cmd)
+  local ok,parsed=pcall(json.parse,raw)
+  if ok and parsed and parsed.data then return 0,{entries=parsed.data} end
+  return 0,{raw=raw}
+end}
+
 function M.list(t)for k,_ in pairs(methods)do table.insert(t,k)end;return 0 end
 function M.call(m,a)local f=methods[m];if not f then return 1 end;return f.call(a or {}) end
 return M
