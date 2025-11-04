@@ -249,6 +249,15 @@ local function gather_discovered(managed_clients)
         })
       end
     end
+    used_alias[final] = true
+    alias_for_index[idx] = final
+    map_alias(group.section, final)
+    map_alias(group.id, final)
+    map_alias(group.name, final)
+    map_alias(candidate, final)
+    map_alias(final, final)
+    groups[idx] = group
+    group.section = final
   end
 
   local function collect_assoc(map, origin, iface)
