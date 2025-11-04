@@ -1,6 +1,6 @@
 ## 2.1.4
 
-- Installer now bootstraps BusyBox `httpd` automatically via `opkg` when missing, with an opt-out for package list refreshes.
+- Installer now ensures `uhttpd` is installed and configures a dedicated listener for the UI, with an opt-out for `opkg` updates.
 
 ## 2.1.3
 

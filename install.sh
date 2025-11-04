@@ -26,11 +26,15 @@ for cmd in cp find mkdir uci; do
   require_cmd "$cmd"
 done
 
-HTTPD_BIN="${HTTPD_BIN:-$(command -v httpd 2>/dev/null || true)}"
 OPKG_BIN="${OPKG_BIN:-$(command -v opkg 2>/dev/null || true)}"
+UCI_BIN="$(command -v uci)"
 
-ensure_httpd() {
-  if [ -n "$HTTPD_BIN" ]; then
+UI_PORT="${PARENTAL_UI_PORT:-8088}"
+UI_ROOT="/www/parental-ui"
+PAYLOAD_ROOT="$(pwd)"
+
+ensure_uhttpd() {
+  if [ -x /etc/init.d/uhttpd ]; then
     return 0
   fi
 
@@ -38,30 +42,23 @@ ensure_httpd() {
     return 1
   fi
 
-  if ! "$OPKG_BIN" list-installed busybox-httpd >/dev/null 2>&1; then
-    log "Installing busybox-httpd via opkg"
+  if ! "$OPKG_BIN" list-installed uhttpd >/dev/null 2>&1; then
+    log "Installing uhttpd via opkg"
     if [ "${PARENTAL_SKIP_OPKG_UPDATE:-0}" != "1" ]; then
       log "Updating opkg package list"
       if ! "$OPKG_BIN" update; then
         warn "opkg update failed; continuing with install attempt"
       fi
     fi
-    "$OPKG_BIN" install busybox-httpd >/dev/null 2>&1 || "$OPKG_BIN" install busybox-httpd || return 1
+    "$OPKG_BIN" install uhttpd >/dev/null 2>&1 || "$OPKG_BIN" install uhttpd || return 1
   fi
 
-  HTTPD_BIN="${HTTPD_BIN:-$(command -v httpd 2>/dev/null || true)}"
-  [ -n "$HTTPD_BIN" ]
+  [ -x /etc/init.d/uhttpd ]
 }
 
-if ! ensure_httpd; then
-  fail "BusyBox httpd is required (install the 'busybox-httpd' package)."
+if ! ensure_uhttpd; then
+  fail "uHTTPd is required (install the 'uhttpd' package)."
 fi
-PIDOF_BIN="$(command -v pidof 2>/dev/null || true)"
-UCI_BIN="$(command -v uci)"
-
-UI_PORT="${PARENTAL_UI_PORT:-8088}"
-UI_ROOT="/www/parental-ui"
-PAYLOAD_ROOT="$(pwd)"
 
 log "Creating target directories"
 for dir in \
@@ -107,19 +104,30 @@ run_initd parental enable
 run_initd parental restart
 run_initd rpcd restart
 
-start_httpd() {
-  if [ -n "$PIDOF_BIN" ]; then
-    pid_list="$($PIDOF_BIN httpd 2>/dev/null || true)"
-    if [ -n "$pid_list" ]; then
-      log "Stopping existing httpd instance(s): $pid_list"
-      kill $pid_list 2>/dev/null || true
-    fi
+configure_uhttpd() {
+  section="parental"
+  if ! "$UCI_BIN" -q get uhttpd.$section >/dev/null 2>&1; then
+    "$UCI_BIN" set uhttpd.$section=uhttpd
   fi
-  log "Starting UI httpd on port $UI_PORT"
-  "$HTTPD_BIN" -p "$UI_PORT" -h "$UI_ROOT" &
+
+  "$UCI_BIN" set uhttpd.$section.home="$UI_ROOT"
+  "$UCI_BIN" set uhttpd.$section.index_page='index.html'
+  "$UCI_BIN" set uhttpd.$section.realm='Parental Suite'
+  "$UCI_BIN" set uhttpd.$section.rfc1918_filter='1'
+  "$UCI_BIN" set uhttpd.$section.redirect_https='0'
+  "$UCI_BIN" -q delete uhttpd.$section.network >/dev/null 2>&1 || true
+  "$UCI_BIN" add_list uhttpd.$section.network='lan'
+  "$UCI_BIN" -q delete uhttpd.$section.listen_http >/dev/null 2>&1 || true
+  "$UCI_BIN" add_list uhttpd.$section.listen_http="0.0.0.0:$UI_PORT"
+
+  "$UCI_BIN" commit uhttpd
+
+  run_initd uhttpd enable
+  run_initd uhttpd reload
 }
 
-start_httpd
+log "Configuring uHTTPd for UI on port $UI_PORT"
+configure_uhttpd
 
 LAN_IP="$($UCI_BIN get network.lan.ipaddr 2>/dev/null || true)"
 if [ -z "$LAN_IP" ] && command -v ip >/dev/null 2>&1; then
