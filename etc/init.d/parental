@@ -1,0 +1,13 @@
+#!/bin/sh /etc/rc.common
+START=98
+USE_PROCD=1
+NAME=parental
+start_service(){
+  /usr/share/parental/scripts/apply.sh boot
+  grep -q schedule_tick.sh /etc/crontabs/root 2>/dev/null || {
+    echo '* * * * * /usr/share/parental/scripts/schedule_tick.sh >/dev/null 2>&1' >>/etc/crontabs/root
+    /etc/init.d/cron restart >/dev/null 2>&1
+  }
+  httpd -p 8088 -h /www/parental-ui &
+}
+reload_service(){ /usr/share/parental/scripts/apply.sh reload; }

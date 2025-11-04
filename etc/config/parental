@@ -1,0 +1,19 @@
+config global 'settings'
+  option enabled '1'
+  option default_policy 'allow'
+  option adguard_url 'http://127.0.0.1:3000'
+  option adguard_token ''
+  option log_level 'info'
+
+config group 'kids'
+  option name 'Kids'
+  option dns_profile 'kids'
+  option schedule '07:00-20:30;mon-fri'
+  option schedule '08:00-21:00;sat-sun'
+  list clients 'AA:BB:CC:DD:EE:01'
+
+config client
+  option mac 'AA:BB:CC:DD:EE:01'
+  option name 'KidPhone'
+  option group 'kids'
+  option pause_until ''

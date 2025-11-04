@@ -1,0 +1,11 @@
+{
+  "parental": {
+    "description": "Parental Suite RPCD ACL",
+    "read": {
+      "ubus": [ "parental", "session", "uci", "file", "system" ]
+    },
+    "write": {
+      "ubus": [ "parental", "uci" ]
+    }
+  }
+}
